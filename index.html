@@ -111,6 +111,22 @@ const BYTECODE = "0x608060405234801561000f575f80fd5b506118508061001d5f395ff3fe60
 const RPC = "https://rpc.ritualfoundation.org";
 const EXPLORER = "https://explorer.ritualfoundation.org";
 const CHAIN_ID = 1979, CHAIN_HEX = "0x7BB";
+const RITUAL_WALLET = "0x532F0dF0896F353d8C3DD8cc134e8129DA2a3948";
+const REGISTRY = "0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F";
+const WALLET_ABI = ["function deposit(uint256 lockDuration) payable"];
+const REG_ABI = ["function getServicesByCapability(uint8 capability, bool checkValidity) view returns (tuple(tuple(address paymentAddress,address teeAddress,uint8 teeType,bytes publicKey,string endpoint,bytes32 certPubKeyHash,uint8 capability) node, bool isValid, bytes32 workloadId)[])"];
+
+function errDetail(e){
+  const p=[];
+  if(e&&e.shortMessage) p.push(e.shortMessage);
+  if(e&&e.reason) p.push("reason="+e.reason);
+  if(e&&e.code) p.push("code="+e.code);
+  try{ if(e&&e.info&&e.info.error&&e.info.error.message) p.push("rpc: "+e.info.error.message); }catch(_){}
+  try{ if(e&&e.error&&e.error.message) p.push("inner: "+e.error.message); }catch(_){}
+  if(e&&e.data&&typeof e.data==="string") p.push("data="+e.data.slice(0,80));
+  if(p.length===0) p.push((e&&e.message)?e.message:String(e));
+  return p.join(" | ");
+}
 
 const $ = id => document.getElementById(id);
 let provider, signer, account = "", oracle = null, oracleAddr = "";
@@ -145,7 +161,7 @@ async function connect(){
     await refreshBalance();
     const saved = localStorage.getItem("oracleAddr");
     if(saved){ $("addrIn").value=saved; }
-  }catch(e){ log("Connect failed: "+(e.message||e),"e"); }
+  }catch(e){ log("Connect failed: "+errDetail(e),"e"); }
 }
 
 function bindOracle(addr){
@@ -168,7 +184,7 @@ async function deploy(){
     log("Deployed ✅ <b>"+addr+"</b>");
     bindOracle(addr);
     await refreshBalance();
-  }catch(e){ log("Deploy failed: "+(e.shortMessage||e.message||e),"e"); $("deployBtn").disabled=false; }
+  }catch(e){ log("Deploy failed: "+errDetail(e),"e"); $("deployBtn").disabled=false; }
 }
 
 async function useExisting(){
@@ -180,12 +196,19 @@ async function useExisting(){
 async function fund(){
   try{
     $("fundBtn").disabled=true;
-    log("<span class='spin'></span>Funding oracle… confirm in MetaMask.");
-    const tx = await oracle.fund({ value: ethers.parseEther("0.05"), gasLimit: 300000n });
+    // 1) deposit into RitualWallet for YOUR wallet (the signer) — async fee check is on the EOA
+    log("<span class='spin'></span>Funding your wallet's fee balance… confirm in MetaMask.");
+    const rw = new ethers.Contract(RITUAL_WALLET, WALLET_ABI, signer);
+    let tx = await rw.deposit(50000n, { value: ethers.parseEther("0.05"), gasLimit: 300000n });
     await tx.wait();
-    log("Funded ✅ inference fees ready.");
+    log("Wallet fee balance funded ✅");
+    // 2) also fund the contract's balance (covers the contract-pays path)
+    log("<span class='spin'></span>Funding the oracle contract… confirm in MetaMask.");
+    tx = await oracle.fund({ value: ethers.parseEther("0.03"), gasLimit: 300000n });
+    await tx.wait();
+    log("Oracle funded ✅ inference fees ready.");
     await refreshBalance();
-  }catch(e){ log("Fund failed: "+(e.shortMessage||e.message||e),"e"); }
+  }catch(e){ log("Fund failed: "+errDetail(e),"e"); }
   finally{ $("fundBtn").disabled=false; }
 }
 
@@ -196,21 +219,29 @@ async function ask(){
   try{
     $("askBtn").disabled=true;
     $("answer").classList.remove("show");
+    // pre-check: is there a live LLM executor on Ritual right now?
+    try{
+      const reg = new ethers.Contract(REGISTRY, REG_ABI, provider);
+      const svcs = await reg.getServicesByCapability(1, true);
+      if(!svcs || svcs.length===0){ log("No live LLM executor on Ritual right now. The network has no AI node available to answer — try again later.","e"); $("askBtn").disabled=false; return; }
+      log("LLM executor available: <b>"+svcs.length+"</b> node(s).");
+    }catch(pe){ log("Executor check warning: "+errDetail(pe)); }
+
     log("<span class='spin'></span>Asking the oracle… confirm in MetaMask. (AI runs in a TEE, may take 10-40s)");
-    const tx = await oracle.ask(q, { gasLimit: 6000000n });
+    const tx = await oracle.ask(q, { gasLimit: 5000000n });
     log("Tx sent ("+short(tx.hash)+"). Waiting for the TEE to answer…");
     await tx.wait();
     let ans = "";
-    for(let i=0;i<6;i++){ ans = await oracle.lastAnswer(); if(ans && ans.length) break; await new Promise(r=>setTimeout(r,2500)); }
+    for(let i=0;i<8;i++){ try{ ans = await oracle.lastAnswer(); }catch(_){}; if(ans && ans.length) break; await new Promise(r=>setTimeout(r,2500)); }
     if(ans && ans.length){
       $("answerTxt").textContent = ans;
       $("answer").classList.add("show");
       log("Oracle answered ✅ — written on-chain.");
     } else {
-      log("Tx settled but answer is still empty. Wait a few seconds and press Ask again to read it.","e");
+      log("Tx settled but answer still empty. Wait ~10s and press Ask again to read it.","e");
     }
     await refreshBalance();
-  }catch(e){ log("Ask failed: "+(e.shortMessage||e.message||e),"e"); }
+  }catch(e){ log("Ask failed: "+errDetail(e),"e"); }
   finally{ $("askBtn").disabled=false; }
 }
 
