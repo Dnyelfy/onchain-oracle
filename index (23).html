@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>On-Chain Oracle — Ritual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--obsidian:#0B0B10;--crypt:#13131B;--crypt-2:#171722;--line:#26262F;--bone:#ECE7DD;--ash:#8A8678;--ash-dim:#5C5A52;--ember:#D9A05B;--ember-dim:#7a5c33;--pulse:#6FB3A8;--danger:#C9706B;--serif:"Instrument Serif",Georgia,serif;--mono:"JetBrains Mono",ui-monospace,monospace;--sans:"Hanken Grotesk",system-ui,sans-serif;}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:radial-gradient(900px 500px at 80% -10%,rgba(217,160,91,.07),transparent 60%),radial-gradient(700px 600px at -5% 110%,rgba(111,179,168,.05),transparent 55%),var(--obsidian);color:var(--bone);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding:26px 22px 80px}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:30px;height:30px;flex:none}
+.brand h1{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.22em;margin:0;text-transform:uppercase}
+.brand small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--ash-dim);text-transform:uppercase;margin-top:2px}
+.pill{font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:7px 12px;border:1px solid var(--line);border-radius:999px;color:var(--ash);background:var(--crypt);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ash-dim);flex:none}
+.pill.live .dot{background:var(--pulse)}.pill.wrong{color:var(--danger);border-color:#3a2422}.pill.wrong .dot{background:var(--danger)}
+button{font-family:var(--mono);cursor:pointer;border:none}
+.btn{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;padding:11px 16px;border-radius:8px;border:1px solid var(--ember-dim);background:linear-gradient(180deg,#1c1813,#15120d);color:var(--ember);transition:border-color .15s,transform .05s}
+.btn:hover{border-color:var(--ember)}.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{border-color:var(--line);background:var(--crypt);color:var(--bone)}
+.hero{margin:26px 0 24px}
+.hero h2{font-family:var(--serif);font-weight:400;font-size:clamp(30px,6vw,48px);line-height:1.04;margin:0}
+.hero h2 em{font-style:italic;color:var(--ember)}
+.hero p{color:var(--ash);max-width:52ch;margin:12px 0 0;font-size:15px}
+.step{background:var(--crypt);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:14px}
+.step .n{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ash-dim);margin-bottom:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text]{flex:1;min-width:220px;font-family:var(--mono);font-size:14px;color:var(--bone);background:var(--obsidian);border:1px solid var(--line);border-radius:9px;padding:12px 13px}
+input::placeholder{color:var(--ash-dim)}
+.mono{font-family:var(--mono);font-size:12px;color:var(--ash);word-break:break-all}
+.mono a{color:var(--ember);text-decoration:none;border-bottom:1px solid var(--ember-dim)}
+.answer{margin-top:14px;background:linear-gradient(180deg,#171320,#13111a);border:1px solid var(--ember-dim);border-radius:14px;padding:20px;display:none}
+.answer.show{display:block}
+.answer .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ember);margin-bottom:10px}
+.answer .txt{font-family:var(--serif);font-size:20px;line-height:1.45;color:var(--bone)}
+.log{margin-top:18px;font-family:var(--mono);font-size:11px;color:var(--ash);background:var(--crypt);border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-height:180px;overflow:auto;white-space:pre-wrap}
+.log b{color:var(--pulse)}.log .e{color:var(--danger)}
+.strip{margin-top:24px;font-family:var(--mono);font-size:11px;color:var(--ash-dim);border-top:1px solid var(--line);padding-top:14px}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--ember-dim);border-top-color:var(--ember);border-radius:50%;animation:s .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40"><rect x="2" y="2" width="36" height="36" rx="8" fill="#13131B" stroke="#26262F"/><path d="M20 9 L31 20 L20 31 L9 20 Z" fill="none" stroke="#D9A05B" stroke-width="1.6"/><path d="M20 14 L26 20 L20 26 L14 20 Z" fill="#D9A05B" opacity="0.85"/></svg>
+      <div><h1>On-Chain Oracle</h1><small>Ritual · chain 1979</small></div>
+    </div>
+    <span id="netPill" class="pill"><span class="dot"></span><span id="netText">offline</span></span>
+  </header>
+
+  <section class="hero">
+    <h2>An AI that <em>thinks</em> on-chain.</h2>
+    <p>No backend, no API server, no keeper. The contract calls Ritual's LLM precompile inside a TEE and writes the answer straight to the blockchain. Impossible on Ethereum.</p>
+  </section>
+
+  <section class="step">
+    <div class="n">Step 0 · Wallet</div>
+    <div class="row">
+      <button id="connectBtn" class="btn">Connect MetaMask</button>
+      <span id="acct" class="mono"></span>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="n">Step 1 · Deploy the oracle</div>
+    <div class="row">
+      <button id="deployBtn" class="btn" disabled>Deploy</button>
+      <span id="depInfo" class="mono"></span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="addrIn" type="text" placeholder="…or paste an already-deployed oracle address (0x…)"/>
+      <button id="useBtn" class="btn ghost">Use</button>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="n">Step 2 · Fund it (one time)</div>
+    <div class="row">
+      <button id="fundBtn" class="btn" disabled>Fund 0.05 RITUAL</button>
+      <span class="mono">covers the AI inference fees</span>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="n">Step 3 · Ask the oracle</div>
+    <div class="row">
+      <input id="qIn" type="text" placeholder="Ask anything… e.g. What is the fate of this chain?"/>
+      <button id="askBtn" class="btn" disabled>Ask</button>
+    </div>
+    <div id="answer" class="answer">
+      <div class="lbl">The oracle speaks</div>
+      <div id="answerTxt" class="txt"></div>
+    </div>
+  </section>
+
+  <div id="log" class="log">Ready. Connect your wallet to begin.</div>
+  <div class="strip">RitualWallet 0x532F…3948 · LLM precompile 0x0802 · model GLM-4.7-FP8</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+const ABI = [{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"answer","type":"string"},{"indexed":false,"internalType":"bool","name":"hadError","type":"bool"}],"name":"Answered","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"who","type":"address"},{"indexed":false,"internalType":"string","name":"question","type":"string"}],"name":"Asked","type":"event"},{"inputs":[],"name":"answers","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"question","type":"string"}],"name":"ask","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"fund","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"lastAnswer","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"lastAsker","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"lastQuestion","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}];
+const BYTECODE = "0x608060405234801561000f575f80fd5b506118508061001d5f395ff3fe608060405260043610610054575f3560e01c8063189bf94f14610058578063b60d428814610079578063bb23ae2514610081578063d57447b0146100ab578063e1145e4b146100e2578063f99a945714610105575b5f80fd5b348015610063575f80fd5b506100776100723660046108ac565b610119565b005b6100776102b5565b34801561008c575f80fd5b50610095610393565b6040516100a29190610964565b60405180910390f35b3480156100b6575f80fd5b506003546100ca906001600160a01b031681565b6040516001600160a01b0390911681526020016100a2565b3480156100ed575f80fd5b506100f760025481565b6040519081526020016100a2565b348015610110575f80fd5b5061009561041f565b5f61013461012561042b565b61012f8585610523565b610550565b90505f806108026001600160a01b031683604051610152919061097d565b5f604051808303815f865af19150503d805f811461018b576040519150601f19603f3d011682016040523d82523d5f602084013e610190565b606091505b5091509150816101e05760405162461bcd60e51b81526020600482015260166024820152751c1c9958dbdb5c1a5b194818d85b1b0819985a5b195960521b60448201526064015b60405180910390fd5b60605f6101ec8361065c565b90925090505f6101fd878983610a32565b50600161020a8382610aed565b50600380546001600160a01b0319163317905560028054600191905f90610232908490610ba8565b909155505060405133907fe72a12444e97c0936c7ae842a79c385ae1c1f0c591d62f4b3dd9247a62d0f9729061026b908a908a90610bc7565b60405180910390a27fdb39226bee5effcdf7f45cbe5abd1d61884ff386e1f605f66dfe3151cdf25c6d82826040516102a4929190610bf5565b60405180910390a150505050505050565b60405161c35060248201525f9073532f0df0896f353d8c3dd8cc134e8129da2a394890349060440160408051601f198184030181529181526020820180516001600160e01b031663b6b55f2560e01b17905251610312919061097d565b5f6040518083038185875af1925050503d805f811461034c576040519150601f19603f3d011682016040523d82523d5f602084013e610351565b606091505b50509050806103905760405162461bcd60e51b815260206004820152600b60248201526a199d5b990819985a5b195960aa1b60448201526064016101d7565b50565b600180546103a0906109ac565b80601f01602080910402602001604051908101604052809291908181526020018280546103cc906109ac565b80156104175780601f106103ee57610100808354040283529160200191610417565b820191905f5260205f20905b8154815290600101906020018083116103fa57829003601f168201915b505050505081565b5f80546103a0906109ac565b60405163069a031b60e01b815260016004820181905260248201525f908190739644e8562ce0fe12b4deec4163c064a8862bf47f9063069a031b906044015f60405180830381865afa158015610483573d5f803e3d5ffd5b505050506040513d5f823e601f3d908101601f191682016040526104aa9190810190610d56565b90505f8151116104fc5760405162461bcd60e51b815260206004820152601960248201527f6e6f204c4c4d206578656375746f7220617661696c61626c650000000000000060448201526064016101d7565b805f8151811061050e5761050e610eff565b60200260200101515f01516020015191505090565b60608282604051602001610538929190610f13565b60405160208183030381529060405290505b92915050565b606061055a6107a9565b6001600160a01b038416815261012c60408083019190915260a082018490528051808201825260138152720f4c2d25adee4ce5e8e989a5a685c6e5a8ca07606b1b60208083019190915260c084019190915261100061014084015260016101a084018190526101c08401528151808301835260068152656d656469756d60d01b818301526102008401525f1961024084018190528251808401845260048152636175746f60e01b818401526102608501526102bc6102c08501526103208401526103e861034084015290515f91610633918491016110be565b60408051601f198184038101825292909152805190910160209091019081529250505092915050565b60605f808380602001905181019061067491906113a0565b9150506060808280602001905181019061068e91906113ff565b509296509093509091505083156106cd57806040516020016106b09190611528565b604051602081830303815290604052600194509450505050915091565b6106d6826106e2565b965f9650945050505050565b60605f80838060200190518101906106fa91906115e4565b5097509750505050505050815f148061071257508051155b1561075357505060408051808201909152601981527f5b6f7261636c652072657475726e6564206e6f7468696e675d00000000000000602082015292915050565b5f815f8151811061076657610766610eff565b60200260200101518060200190518101906107819190611705565b925050505f8180602001905181019061079a919061176c565b50919998505050505050505050565b604051806103c001604052805f6001600160a01b03168152602001606081526020015f8152602001606081526020016060815260200160608152602001606081526020015f8152602001606081526020015f151581526020015f815260200160608152602001606081526020015f81526020015f151581526020015f815260200160608152602001606081526020015f815260200160608152602001606081526020015f151581526020015f815260200160608152602001606081526020015f81526020015f8152602001606081526020015f151581526020016108a760405180606001604052806060815260200160608152602001606081525090565b905290565b5f80602083850312156108bd575f80fd5b82356001600160401b03808211156108d3575f80fd5b818501915085601f8301126108e6575f80fd5b8135818111156108f4575f80fd5b866020828501011115610905575f80fd5b60209290920196919550909350505050565b5f5b83811015610931578181015183820152602001610919565b50505f910152565b5f8151808452610950816020860160208601610917565b601f01601f19169290920160200192915050565b602081525f6109766020830184610939565b9392505050565b5f825161098e818460208701610917565b9190910192915050565b634e487b7160e01b5f52604160045260245ffd5b600181811c908216806109c057607f821691505b6020821081036109de57634e487b7160e01b5f52602260045260245ffd5b50919050565b601f821115610a2d575f81815260208120601f850160051c81016020861015610a0a5750805b601f850160051c820191505b81811015610a2957828155600101610a16565b5050505b505050565b6001600160401b03831115610a4957610a49610998565b610a5d83610a5783546109ac565b836109e4565b5f601f841160018114610a8e575f8515610a775750838201355b5f19600387901b1c1916600186901b178355610ae6565b5f83815260209020601f19861690835b82811015610abe5786850135825560209485019460019092019101610a9e565b5086821015610ada575f1960f88860031b161c19848701351681555b505060018560011b0183555b5050505050565b81516001600160401b03811115610b0657610b06610998565b610b1a81610b1484546109ac565b846109e4565b602080601f831160018114610b4d575f8415610b365750858301515b5f19600386901b1c1916600185901b178555610a29565b5f85815260208120601f198616915b82811015610b7b57888601518255948401946001909101908401610b5c565b5085821015610b9857878501515f19600388901b60f8161c191681555b5050505050600190811b01905550565b8082018082111561054a57634e487b7160e01b5f52601160045260245ffd5b60208152816020820152818360408301375f818301604090810191909152601f909201601f19160101919050565b604081525f610c076040830185610939565b905082151560208301529392505050565b604051606081016001600160401b0381118282101715610c3a57610c3a610998565b60405290565b60405160e081016001600160401b0381118282101715610c3a57610c3a610998565b604051601f8201601f191681016001600160401b0381118282101715610c8a57610c8a610998565b604052919050565b5f6001600160401b03821115610caa57610caa610998565b5060051b60200190565b80516001600160a01b0381168114610cca575f80fd5b919050565b805160ff81168114610cca575f80fd5b5f82601f830112610cee575f80fd5b81516001600160401b03811115610d0757610d07610998565b610d1a601f8201601f1916602001610c62565b818152846020838601011115610d2e575f80fd5b610d3f826020830160208701610917565b949350505050565b80518015158114610cca575f80fd5b5f60208284031215610d66575f80fd5b81516001600160401b0380821115610d7c575f80fd5b818401915084601f830112610d8f575f80fd5b8151610da2610d9d82610c92565b610c62565b8082825260208201915060208360051b860101925087831115610dc3575f80fd5b602085015b83811015610ef357805185811115610dde575f80fd5b8601601f196060828c0382011215610df4575f80fd5b610dfc610c18565b602083015188811115610e0d575f80fd5b830160e0818e0384011215610e20575f80fd5b610e28610c40565b9250610e3660208201610cb4565b8352610e4460408201610cb4565b6020840152610e5560608201610ccf565b6040840152608081015189811115610e6b575f80fd5b610e7a8e602083850101610cdf565b60608501525060a081015189811115610e91575f80fd5b610ea08e602083850101610cdf565b60808501525060c081015160a0840152610ebc60e08201610ccf565b60c084015250818152610ed160408401610d47565b6020828101919091526060939093015160408201528552509283019201610dc8565b50979650505050505050565b634e487b7160e01b5f52603260045260245ffd5b7f5b7b22726f6c65223a2273797374656d222c22636f6e74656e74223a22596f7581527f2061726520746865204f6e2d436861696e204f7261636c652c20616e20616e6360208201527f69656e7420696e74656c6c6967656e6365206c6976696e6720696e736964652060408201527f6120626c6f636b636861696e2e20416e7377657220696e20322d33207669766960608201527f642c20736c696768746c7920637279707469632073656e74656e6365732e227d6080820152600b60fa1b60a08201527f7b22726f6c65223a2275736572222c22636f6e74656e74223a2200000000000060a1820152818360bb83013762227d5d60e81b910160bb81019190915260be01919050565b5f815180845260208085019450848260051b86018286015f5b8581101561106157838303895261104f838351610939565b98850198925090840190600101611037565b5090979650505050505050565b5f8151606084526110826060850182610939565b90506020830151848203602086015261109b8282610939565b915050604083015184820360408601526110b58282610939565b95945050505050565b602081526110d86020820183516001600160a01b03169052565b5f60208301516103c08060408501526110f56103e085018361101e565b9150604085015160608501526060850151601f198086850301608087015261111d848361101e565b935060808701519150808685030160a087015261113a8483610939565b935060a08701519150808685030160c08701526111578483610939565b935060c08701519150808685030160e08701526111748483610939565b935060e087015191506101008281880152808801519250506101208187860301818801526111a28584610939565b9450808801519250506101406111bb8188018415159052565b808801519250506101608281880152808801519250506101808187860301818801526111e78584610939565b9450808801519250506101a08187860301818801526112068584610939565b908801516101c08881019190915288015190945091506101e061122c8188018415159052565b808801519250506102008281880152808801519250506102208187860301818801526112588584610939565b9450808801519250506102408187860301818801526112778584610939565b9450808801519250506102608281880152808801519250506102808187860301818801526112a58584610939565b9450808801519250506102a08187860301818801526112c48584610939565b9450808801519250506102c06112dd8188018415159052565b808801519250506102e08281880152808801519250506103008187860301818801526113098584610939565b9450808801519250506103208187860301818801526113288584610939565b9088015161034088810191909152880151610360808901919091528801518782038301610380808a019190915291955092506113648584610939565b9450808801519250506103a061137d8188018415159052565b870151868503909101838701529050611396838261106e565b9695505050505050565b5f80604083850312156113b1575f80fd5b82516001600160401b03808211156113c7575f80fd5b6113d386838701610cdf565b935060208501519150808211156113e8575f80fd5b506113f585828601610cdf565b9150509250929050565b5f805f805f60a08688031215611413575f80fd5b61141c86610d47565b945060208601516001600160401b0380821115611437575f80fd5b61144389838a01610cdf565b95506040880151915080821115611458575f80fd5b61146489838a01610cdf565b94506060880151915080821115611479575f80fd5b61148589838a01610cdf565b9350608088015191508082111561149a575f80fd5b908701906060828a0312156114ad575f80fd5b6114b5610c18565b8251828111156114c3575f80fd5b6114cf8b828601610cdf565b8252506020830151828111156114e3575f80fd5b6114ef8b828601610cdf565b602083015250604083015182811115611506575f80fd5b6115128b828601610cdf565b6040830152508093505050509295509295909350565b6e02db7b930b1b6329032b93937b92e9608d1b81525f825161155181600f850160208701610917565b91909101600f0192915050565b5f82601f83011261156d575f80fd5b8151602061157d610d9d83610c92565b82815260059290921b8401810191818101908684111561159b575f80fd5b8286015b848110156115d95780516001600160401b038111156115bd575f8081fd5b6115cb8986838b0101610cdf565b84525091830191830161159f565b509695505050505050565b5f805f805f805f805f6101208a8c0312156115fd575f80fd5b89516001600160401b0380821115611613575f80fd5b61161f8d838e01610cdf565b9a5060208c0151915080821115611634575f80fd5b6116408d838e01610cdf565b995060408c0151985060608c015191508082111561165c575f80fd5b6116688d838e01610cdf565b975060808c015191508082111561167d575f80fd5b6116898d838e01610cdf565b965060a08c015191508082111561169e575f80fd5b6116aa8d838e01610cdf565b955060c08c0151945060e08c01519150808211156116c6575f80fd5b6116d28d838e0161155e565b93506101008c01519150808211156116e8575f80fd5b506116f58c828d01610cdf565b9150509295985092959850929598565b5f805f60608486031215611717575f80fd5b8351925060208401516001600160401b0380821115611734575f80fd5b61174087838801610cdf565b93506040860151915080821115611755575f80fd5b5061176286828701610cdf565b9150509250925092565b5f805f805f60a08688031215611780575f80fd5b85516001600160401b0380821115611796575f80fd5b6117a289838a01610cdf565b965060208801519150808211156117b7575f80fd5b6117c389838a01610cdf565b955060408801519150808211156117d8575f80fd5b6117e489838a01610cdf565b9450606088015193506080880151915080821115611800575f80fd5b5061180d8882890161155e565b915050929550929590935056fea26469706673582212209b1d6ad22b937f6eb03ed80a0aa94e8c6aef98f53aa99b3ad15a62eb46ac9cbc64736f6c63430008140033";
+const RPC = "https://rpc.ritualfoundation.org";
+const EXPLORER = "https://explorer.ritualfoundation.org";
+const CHAIN_ID = 1979, CHAIN_HEX = "0x7BB";
+
+const $ = id => document.getElementById(id);
+let provider, signer, account = "", oracle = null, oracleAddr = "";
+
+function log(msg, cls){ const l=$("log"); const line=document.createElement("div"); if(cls)line.className=cls; line.innerHTML=msg; l.appendChild(line); l.scrollTop=l.scrollHeight; }
+function short(a){return a.slice(0,6)+"…"+a.slice(-4);}
+
+function setNet(state){ const p=$("netPill"); if(state==="ok"){p.className="pill live";$("netText").textContent="Ritual testnet";} else if(state==="wrong"){p.className="pill wrong";$("netText").textContent="wrong network";} else {p.className="pill";$("netText").textContent="offline";} }
+
+async function ensureChain(){
+  try{ await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:CHAIN_HEX}]}); }
+  catch(e){ if(e.code===4902){ await window.ethereum.request({method:"wallet_addEthereumChain",params:[{chainId:CHAIN_HEX,chainName:"Ritual Testnet",nativeCurrency:{name:"Ritual",symbol:"RITUAL",decimals:18},rpcUrls:[RPC],blockExplorerUrls:[EXPLORER]}]}); } else { throw e; } }
+}
+
+async function refreshBalance(){
+  try{ const bal = await provider.getBalance(account); const r=(+ethers.formatEther(bal)).toFixed(4); $("acct").innerHTML = short(account)+" · "+r+" RITUAL"; }catch(e){}
+}
+
+async function connect(){
+  if(!window.ethereum){ log("MetaMask bulunamadı. Kurup sayfayı yenile.","e"); return; }
+  try{
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await window.ethereum.request({method:"eth_requestAccounts"});
+    await ensureChain();
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    const net = await provider.getNetwork();
+    setNet(Number(net.chainId)===CHAIN_ID ? "ok" : "wrong");
+    $("deployBtn").disabled=false;
+    log("Connected: <b>"+short(account)+"</b>");
+    await refreshBalance();
+    const saved = localStorage.getItem("oracleAddr");
+    if(saved){ $("addrIn").value=saved; }
+  }catch(e){ log("Connect failed: "+(e.message||e),"e"); }
+}
+
+function bindOracle(addr){
+  oracleAddr = addr;
+  oracle = new ethers.Contract(addr, ABI, signer);
+  $("depInfo").innerHTML = "Oracle: <a href='"+EXPLORER+"/address/"+addr+"' target='_blank'>"+short(addr)+" ↗</a>";
+  $("fundBtn").disabled=false; $("askBtn").disabled=false;
+  try{ localStorage.setItem("oracleAddr", addr); }catch(e){}
+}
+
+async function deploy(){
+  try{
+    $("deployBtn").disabled=true;
+    log("<span class='spin'></span>Deploying oracle… confirm in MetaMask.");
+    const factory = new ethers.ContractFactory(ABI, BYTECODE, signer);
+    const c = await factory.deploy();
+    log("Tx sent, waiting for confirmation…");
+    await c.waitForDeployment();
+    const addr = await c.getAddress();
+    log("Deployed ✅ <b>"+addr+"</b>");
+    bindOracle(addr);
+    await refreshBalance();
+  }catch(e){ log("Deploy failed: "+(e.shortMessage||e.message||e),"e"); $("deployBtn").disabled=false; }
+}
+
+async function useExisting(){
+  const a=$("addrIn").value.trim();
+  if(!/^0x[0-9a-fA-F]{40}$/.test(a)){ log("That doesn't look like a 0x address.","e"); return; }
+  bindOracle(a); log("Using oracle at <b>"+short(a)+"</b>");
+}
+
+async function fund(){
+  try{
+    $("fundBtn").disabled=true;
+    log("<span class='spin'></span>Funding oracle… confirm in MetaMask.");
+    const tx = await oracle.fund({ value: ethers.parseEther("0.05"), gasLimit: 300000n });
+    await tx.wait();
+    log("Funded ✅ inference fees ready.");
+    await refreshBalance();
+  }catch(e){ log("Fund failed: "+(e.shortMessage||e.message||e),"e"); }
+  finally{ $("fundBtn").disabled=false; }
+}
+
+async function ask(){
+  const q=$("qIn").value.trim();
+  if(!q){ return; }
+  if(!oracle){ log("Deploy or set an oracle address first.","e"); return; }
+  try{
+    $("askBtn").disabled=true;
+    $("answer").classList.remove("show");
+    log("<span class='spin'></span>Asking the oracle… confirm in MetaMask. (AI runs in a TEE, may take 10-40s)");
+    const tx = await oracle.ask(q, { gasLimit: 6000000n });
+    log("Tx sent ("+short(tx.hash)+"). Waiting for the TEE to answer…");
+    await tx.wait();
+    let ans = "";
+    for(let i=0;i<6;i++){ ans = await oracle.lastAnswer(); if(ans && ans.length) break; await new Promise(r=>setTimeout(r,2500)); }
+    if(ans && ans.length){
+      $("answerTxt").textContent = ans;
+      $("answer").classList.add("show");
+      log("Oracle answered ✅ — written on-chain.");
+    } else {
+      log("Tx settled but answer is still empty. Wait a few seconds and press Ask again to read it.","e");
+    }
+    await refreshBalance();
+  }catch(e){ log("Ask failed: "+(e.shortMessage||e.message||e),"e"); }
+  finally{ $("askBtn").disabled=false; }
+}
+
+$("connectBtn").addEventListener("click",connect);
+$("deployBtn").addEventListener("click",deploy);
+$("useBtn").addEventListener("click",useExisting);
+$("fundBtn").addEventListener("click",fund);
+$("askBtn").addEventListener("click",ask);
+$("qIn").addEventListener("keydown",e=>{if(e.key==="Enter")ask();});
+if(window.ethereum){ window.ethereum.on("accountsChanged",()=>location.reload()); window.ethereum.on("chainChanged",()=>location.reload()); }
+</script>
+</body>
+</html>
