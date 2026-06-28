@@ -83,7 +83,7 @@ input::placeholder{color:var(--ash-dim)}
   <section class="step">
     <div class="n">Step 2 · Fund it (one time)</div>
     <div class="row">
-      <button id="fundBtn" class="btn" disabled>Fund 0.05 RITUAL</button>
+      <button id="fundBtn" class="btn" disabled>Fund 0.5 RITUAL</button>
       <span class="mono">covers the AI inference fees</span>
     </div>
   </section>
@@ -196,17 +196,13 @@ async function useExisting(){
 async function fund(){
   try{
     $("fundBtn").disabled=true;
-    // 1) deposit into RitualWallet for YOUR wallet (the signer) — async fee check is on the EOA
-    log("<span class='spin'></span>Funding your wallet's fee balance… confirm in MetaMask.");
+    // deposit into RitualWallet for YOUR wallet (the signer). The async fee check
+    // is on the EOA, and one inference escrows ~0.31 RITUAL, so deposit 0.5 for margin.
+    log("<span class='spin'></span>Funding your wallet's fee balance (0.5 RITUAL)… confirm in MetaMask.");
     const rw = new ethers.Contract(RITUAL_WALLET, WALLET_ABI, signer);
-    let tx = await rw.deposit(50000n, { value: ethers.parseEther("0.05"), gasLimit: 300000n });
+    const tx = await rw.deposit(50000n, { value: ethers.parseEther("0.5"), gasLimit: 300000n });
     await tx.wait();
-    log("Wallet fee balance funded ✅");
-    // 2) also fund the contract's balance (covers the contract-pays path)
-    log("<span class='spin'></span>Funding the oracle contract… confirm in MetaMask.");
-    tx = await oracle.fund({ value: ethers.parseEther("0.03"), gasLimit: 300000n });
-    await tx.wait();
-    log("Oracle funded ✅ inference fees ready.");
+    log("Fee balance funded ✅ (0.5 RITUAL ready for inference).");
     await refreshBalance();
   }catch(e){ log("Fund failed: "+errDetail(e),"e"); }
   finally{ $("fundBtn").disabled=false; }
